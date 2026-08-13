@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it at https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  bomParents  BOMItem[] @relation("BOMParent")
+  bomChildren BOMItem[] @relation("BOMChild")
+
+  routings   Routing[]
+  workOrders WorkOrder[]
+
+  revision String @default("A")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BOMItem {
+  id String @id @default(cuid())
+
+  parentId String
+  childId  String
+
+  quantity Float @default(1)
+
+  parent Product @relation("BOMParent", fields: [parentId], references: [id])
+  child  Product @relation("BOMChild", fields: [childId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, childId])
+}
+
+model Department {
+  id String @id @default(cuid())
+
+  code String @unique
+  name String
+
+  machines Machine[]
+
+  createdAt DateTime @default(now())
+}
+
+model Machine {
+  id String @id @default(cuid())
+
+  code String @unique
+  name String
+
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  operationMachines   OperationMachine[]
+  operationExecutions OperationExecution[]
+
+  createdAt DateTime @default(now())
+}
+
+model Routing {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  revision String @default("A")
+
+  operations Operation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, revision])
+}
+
+model Operation {
+  id String @id @default(cuid())
+
+  routingId String
+  routing   Routing @relation(fields: [routingId], references: [id])
+
+  sequence Int
+  name     String
+  type     String
+
+  setupTime Int?
+  cycleTime Int?
+
+  machines OperationMachine[]
+
+  operationExecutions OperationExecution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([routingId, sequence])
+}
+
+model OperationMachine {
+  id String @id @default(cuid())
+
+  operationId String
+  machineId   String
+
+  operation Operation @relation(fields: [operationId], references: [id])
+  machine   Machine   @relation(fields: [machineId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([operationId, machineId])
+}
+
+model WorkOrder {
+  id String @id @default(cuid())
+
+  number String @unique
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+
+  status String @default("PLANNED")
+
+  operations OperationExecution[]
+
+  createdAt DateTime @default(now())
+}
+
+model OperationExecution {
+  id String @id @default(cuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  operationId String
+  operation   Operation @relation(fields: [operationId], references: [id])
+
+  machineId String?
+  machine   Machine? @relation(fields: [machineId], references: [id])
+
+  status String @default("WAITING")
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  actualTime Int?
+
+  createdAt DateTime @default(now())
+}
