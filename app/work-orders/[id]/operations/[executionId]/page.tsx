@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 
 type Machine = {
@@ -51,6 +51,37 @@ export default function OperationPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const [dropdownOpen, setDropdownOpen] =
+    useState(false);
+
+  const dropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(
+          event.target as Node,
+        )
+      ) {
+        setDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,9 +282,9 @@ export default function OperationPage() {
       );
 
       if (!response.ok) {
-        const data = await response.json().catch(
-          () => null,
-        );
+        const data = await response
+          .json()
+          .catch(() => null);
 
         throw new Error(
           data?.error ??
@@ -286,9 +317,9 @@ export default function OperationPage() {
       );
 
       if (!response.ok) {
-        const data = await response.json().catch(
-          () => null,
-        );
+        const data = await response
+          .json()
+          .catch(() => null);
 
         throw new Error(
           data?.error ??
@@ -330,46 +361,50 @@ export default function OperationPage() {
     return null;
   }
 
-  console.log("MACHINE CHECK", {
-    operation: execution.operation.name,
-    operationId: execution.operation.id,
-    status: execution.status,
-    availableMachines,
-    selectedMachineId,
-  });
+  const selectedMachine =
+    availableMachines.find(
+      (machine) =>
+        machine.id === selectedMachineId,
+    );
 
   return (
     <main className="min-h-screen bg-gray-100 p-8">
       <div className="mx-auto max-w-3xl">
+
+        {/* Header */}
         <div className="mb-6">
           <p className="text-sm text-gray-500">
             Radni nalog
           </p>
 
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold text-gray-900">
             {execution.workOrder.number}
           </h1>
 
-          <p className="mt-1 text-gray-600">
+          <p className="mt-1 text-gray-700">
             {execution.workOrder.product.name}
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white p-8 shadow-sm">
+        {/* Main Card */}
+        <div className="overflow-visible rounded-2xl bg-white p-8 shadow-sm">
+
           <div className="mb-8">
             <p className="text-sm text-gray-500">
-              Operacija {execution.operation.sequence}
+              Operacija{" "}
+              {execution.operation.sequence}
             </p>
 
-            <h2 className="mt-1 text-3xl font-bold">
+            <h2 className="mt-1 text-3xl font-bold text-gray-900">
               {execution.operation.name}
             </h2>
 
-            <p className="mt-2 text-gray-500">
+            <p className="mt-2 text-gray-600">
               Tip: {execution.operation.type}
             </p>
           </div>
 
+          {/* Info */}
           <div className="mb-8 grid grid-cols-2 gap-4">
             <Info
               label="Količina"
@@ -380,7 +415,9 @@ export default function OperationPage() {
 
             <Info
               label="Status"
-              value={getStatusLabel(execution.status)}
+              value={getStatusLabel(
+                execution.status,
+              )}
             />
 
             <Info
@@ -401,46 +438,95 @@ export default function OperationPage() {
             />
           </div>
 
+          {/* Error */}
           {error && (
             <div className="mb-6 rounded-lg bg-red-100 p-4 text-red-700">
               {error}
             </div>
           )}
 
+          {/* Machine Selection */}
           {execution.status === "READY" &&
             availableMachines.length > 0 && (
-              <div className="mb-6">
+              <div className="relative z-20 mb-6">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   Mašina
                 </label>
 
-                <select
-                  value={selectedMachineId}
-                  onChange={(event) =>
-                    setSelectedMachineId(
-                      event.target.value,
-                    )
-                  }
-                  className="w-full rounded-lg border border-gray-300 bg-white p-4 text-lg"
+                <div
+                  ref={dropdownRef}
+                  className="relative"
                 >
-                  <option value="">
-                    Izaberi mašinu
-                  </option>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      setDropdownOpen(
+                        (value) => !value,
+                      )
+                    }
+                    className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-left text-sm text-gray-900 outline-none transition-colors hover:border-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  >
+                    <span
+                      className={
+                        selectedMachine
+                          ? "text-gray-900"
+                          : "text-gray-500"
+                      }
+                    >
+                      {selectedMachine
+                        ? `${selectedMachine.name} — ${selectedMachine.code}`
+                        : "Izaberi mašinu"}
+                    </span>
 
-                  {availableMachines.map(
-                    (machine) => (
-                      <option
-                        key={machine.id}
-                        value={machine.id}
-                      >
-                        {machine.name} — {machine.code}
-                      </option>
-                    ),
+                    <span className="ml-3 shrink-0 text-gray-500">
+                      {dropdownOpen
+                        ? "▲"
+                        : "▼"}
+                    </span>
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute z-50 mt-1 max-h-[500px] w-full overflow-y-auto rounded-lg border border-gray-300 bg-white py-1 shadow-lg">
+                      {availableMachines.map(
+                        (machine) => {
+                          const selected =
+                            machine.id ===
+                            selectedMachineId;
+
+                          return (
+                            <button
+                              key={machine.id}
+                              type="button"
+                              disabled={busy}
+                              onClick={() => {
+                                setSelectedMachineId(
+                                  machine.id,
+                                );
+                                setError("");
+                                setDropdownOpen(
+                                  false,
+                                );
+                              }}
+                              className={`block w-full px-3 py-2.5 text-left text-sm transition-colors ${
+                                selected
+                                  ? "bg-blue-50 font-medium text-blue-700"
+                                  : "text-gray-900 hover:bg-blue-50"
+                              }`}
+                            >
+                              {machine.name} —{" "}
+                              {machine.code}
+                            </button>
+                          );
+                        },
+                      )}
+                    </div>
                   )}
-                </select>
+                </div>
               </div>
             )}
 
+          {/* Start */}
           {execution.status === "READY" && (
             <button
               onClick={startOperation}
@@ -449,7 +535,7 @@ export default function OperationPage() {
                 (availableMachines.length > 0 &&
                   !selectedMachineId)
               }
-              className="w-full rounded-xl bg-blue-600 px-6 py-5 text-xl font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-blue-600 px-6 py-5 text-xl font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
               {busy
                 ? "Pokretanje..."
@@ -457,11 +543,12 @@ export default function OperationPage() {
             </button>
           )}
 
+          {/* Complete */}
           {execution.status === "RUNNING" && (
             <button
               onClick={completeOperation}
               disabled={busy}
-              className="w-full rounded-xl bg-green-600 px-6 py-5 text-xl font-bold text-white hover:bg-green-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-green-600 px-6 py-5 text-xl font-bold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
             >
               {busy
                 ? "Završavanje..."
@@ -469,6 +556,7 @@ export default function OperationPage() {
             </button>
           )}
 
+          {/* Completed */}
           {execution.status === "COMPLETED" && (
             <div className="rounded-xl bg-green-100 p-6 text-center text-xl font-bold text-green-800">
               ✓ OPERACIJA JE ZAVRŠENA
@@ -493,7 +581,7 @@ function Info({
         {label}
       </div>
 
-      <div className="mt-1 font-semibold">
+      <div className="mt-1 font-semibold text-gray-900">
         {value}
       </div>
     </div>
@@ -504,14 +592,19 @@ function getStatusLabel(status: string) {
   switch (status) {
     case "PLANNED":
       return "PLANIRANO";
+
     case "WAITING":
       return "ČEKA";
+
     case "READY":
       return "SPREMNO";
+
     case "RUNNING":
       return "U TOKU";
+
     case "COMPLETED":
       return "ZAVRŠENO";
+
     default:
       return status;
   }

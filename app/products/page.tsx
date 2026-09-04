@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Header from "@/app/components/header";
+import Footer from "@/app/components/footer";
+import { LoadingSkeleton } from "@/app/components/loading";
+import { ErrorAlert } from "@/app/components/alerts";
 
 type Product = {
   id: string;
@@ -59,116 +63,100 @@ export default function ProductsPage() {
     };
   }, []);
 
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="text-gray-600">
-          Učitavanje proizvoda...
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-100 p-8">
-        <div className="rounded-xl bg-red-100 p-6 text-red-700">
-          {error}
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-gray-100 p-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6">
-          <Link
-            href="/"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            ← Nazad na početnu
-          </Link>
-        </div>
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <Header />
 
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+      <main className="flex-1 px-6 py-8 md:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-gray-900">
               Proizvodi
             </h1>
-
-            <p className="mt-1 text-gray-600">
-              Pregled proizvoda, sklopova i komponenti
+            <p className="mt-2 text-lg text-gray-700">
+              Upravljanje proizvodima, sklopovima i komponentama
             </p>
           </div>
 
-          <div className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm">
-            Ukupno: {products.length}
-          </div>
-        </div>
+          {error && (
+            <div className="mb-6">
+              <ErrorAlert
+                message={error}
+                onDismiss={() => setError("")}
+              />
+            </div>
+          )}
 
-        {products.length === 0 ? (
-          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
-            <p className="text-gray-500">
-              Nema registrovanih proizvoda.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-            <div className="divide-y divide-gray-200">
+          {loading ? (
+            <LoadingSkeleton count={6} />
+          ) : products.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
+              <div className="text-5xl mb-4">📦</div>
+              <p className="text-lg text-gray-700 font-medium">
+                Nema registrovanih proizvoda
+              </p>
+              <p className="mt-1 text-gray-500">
+                Počnite sa dodavanjem prvog proizvoda
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {products.map((product) => (
-                <ProductRow
+                <ProductCard
                   key={product.id}
                   product={product}
                 />
               ))}
             </div>
-          </div>
-        )}
-      </div>
-    </main>
+          )}
+        </div>
+      </main>
+
+      <Footer />
+    </div>
   );
 }
 
-function ProductRow({
+function ProductCard({
   product,
 }: {
   product: Product;
 }) {
   return (
-    <div className="flex items-center gap-6 p-5 hover:bg-gray-50">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-xl">
-        📦
-      </div>
+    <Link
+      href={`/products/${product.id}`}
+      className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 transition-all hover:border-blue-200 hover:shadow-lg"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-semibold text-gray-900">
-            {product.code}
-          </span>
-
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
+      <div className="relative">
+        <div className="mb-4 flex items-start justify-between">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-2xl">
+            📦
+          </div>
+          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
             Rev. {product.revision}
           </span>
         </div>
 
-        <div className="mt-1 text-lg text-gray-800">
+        <h3 className="font-semibold text-gray-900 truncate">
+          {product.code}
+        </h3>
+        <p className="mt-1 text-lg font-bold text-gray-800 line-clamp-2">
           {product.name}
-        </div>
+        </p>
 
         {product.description && (
-          <div className="mt-1 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-gray-700 line-clamp-2">
             {product.description}
-          </div>
+          </p>
         )}
-      </div>
 
-      <Link
-        href={`/products/${product.id}`}
-        className="shrink-0 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-      >
-        Otvori
-      </Link>
-    </div>
+        <div className="mt-6 flex items-center gap-2 text-sm font-medium text-blue-600 group-hover:text-blue-700">
+          Detaljno
+          <span>→</span>
+        </div>
+      </div>
+    </Link>
   );
 }

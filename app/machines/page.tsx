@@ -1,7 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import Header from "@/app/components/header";
+import Footer from "@/app/components/footer";
+import { LoadingSkeleton } from "@/app/components/loading";
+import { ErrorAlert } from "@/app/components/alerts";
 
 type Department = {
   id: string;
@@ -88,102 +91,95 @@ export default function MachinesPage() {
     return Array.from(grouped.values());
   }, [machines]);
 
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="text-gray-600">
-          Učitavanje mašina...
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-100 p-8">
-        <div className="rounded-xl bg-red-100 p-6 text-red-700">
-          {error}
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-gray-100 p-8">      
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6">
-          <Link href="/" className="text-sm text-blue-600 hover:underline">
-            ← Nazad na početnu
-          </Link>
-        </div>
-        <div className="mb-8">
-          <p className="text-sm font-medium text-gray-500">
-            Proizvodnja
-          </p>
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <Header />
 
-          <h1 className="mt-1 text-3xl font-bold text-gray-900">
-            Mašine
-          </h1>
-
-          <p className="mt-2 text-gray-600">
-            Pregled mašina po proizvodnim odeljenjima
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-6 rounded-lg bg-red-100 p-4 text-red-700">
-            {error}
-          </div>
-        )}
-
-        {machines.length === 0 ? (
-          <div className="rounded-xl bg-white p-8 text-center shadow-sm">
-            <p className="text-gray-500">
-              Nema evidentiranih mašina.
+      <main className="flex-1 px-6 py-8 md:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8">
+            <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">
+              Proizvodnja
+            </p>
+            <h1 className="mt-2 text-4xl font-bold text-gray-900">
+              Mašine
+            </h1>
+            <p className="mt-2 text-lg text-gray-700">
+              Upravljanje mašinama po proizvodnim odeljenjima
             </p>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {departments.map(
-              ({ department, machines: departmentMachines }) => (
-                <section
-                  key={department.id}
-                  className="rounded-2xl bg-white p-6 shadow-sm"
-                >
-                  <div className="mb-5 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-gray-500">
-                        {department.code}
+
+          {error && (
+            <div className="mb-6">
+              <ErrorAlert
+                message={error}
+                onDismiss={() => setError("")}
+              />
+            </div>
+          )}
+
+          {loading ? (
+            <LoadingSkeleton count={8} />
+          ) : machines.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-12 text-center">
+              <div className="text-5xl mb-4">⚙️</div>
+              <p className="text-lg text-gray-700 font-medium">
+                Nema evidentiranih mašina
+              </p>
+              <p className="mt-1 text-gray-500">
+                Počnite sa registrovanjem mašina
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {departments.map(
+                ({ department, machines: departmentMachines }) => (
+                  <section
+                    key={department.id}
+                    className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">
+                            {department.code}
+                          </p>
+                          <h2 className="mt-1 text-2xl font-bold text-gray-900">
+                            {department.name}
+                          </h2>
+                        </div>
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 text-2xl">
+                          🏭
+                        </div>
                       </div>
-
-                      <h2 className="mt-1 text-xl font-bold text-gray-900">
-                        {department.name}
-                      </h2>
                     </div>
 
-                    <div className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-600">
-                      {departmentMachines.length}{" "}
-                      {departmentMachines.length === 1
-                        ? "mašina"
-                        : "mašina"}
+                    <div className="p-6">
+                      <div className="mb-4 text-sm text-gray-500">
+                        {departmentMachines.length}{" "}
+                        {departmentMachines.length === 1
+                          ? "mašina"
+                          : "mašina"}
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {departmentMachines.map((machine) => (
+                          <MachineCard
+                            key={machine.id}
+                            machine={machine}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  </section>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+      </main>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {departmentMachines.map((machine) => (
-                      <MachineCard
-                        key={machine.id}
-                        machine={machine}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ),
-            )}
-          </div>
-        )}
-      </div>
-    </main>
+      <Footer />
+    </div>
   );
 }
 
@@ -193,29 +189,25 @@ function MachineCard({
   machine: Machine;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 p-5 transition hover:border-gray-300 hover:shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            {machine.code}
+    <div className="group relative overflow-hidden rounded-lg border border-gray-200 bg-white p-5 transition-all hover:border-blue-200 hover:shadow-md">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+
+      <div className="relative">
+        <div className="mb-4 flex items-start justify-between">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-lg">
+            ⚙️
           </div>
-
-          <h3 className="mt-1 text-lg font-semibold text-gray-900">
-            {machine.name}
-          </h3>
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            {machine.code}
+          </span>
         </div>
 
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
-          ⚙
-        </div>
-      </div>
+        <h3 className="font-semibold text-gray-900">
+          {machine.name}
+        </h3>
 
-      <div className="mt-4 border-t border-gray-100 pt-4">
-        <div className="text-sm text-gray-500">
-          Odeljenje
-        </div>
-
-        <div className="mt-1 font-medium text-gray-800">
+        <div className="mt-4 flex items-center gap-2 text-xs text-gray-700">
+          <span>📍</span>
           {machine.department.name}
         </div>
       </div>

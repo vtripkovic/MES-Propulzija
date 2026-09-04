@@ -132,7 +132,7 @@ export default function MachinePage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="text-gray-600">
+        <div className="text-gray-700">
           Učitavanje mašine...
         </div>
       </main>
@@ -152,7 +152,7 @@ export default function MachinePage() {
   if (!machine) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="text-gray-600">
+        <div className="text-gray-700">
           Mašina nije pronađena.
         </div>
       </main>
@@ -191,7 +191,7 @@ export default function MachinePage() {
                 {machine.name}
               </h1>
 
-              <p className="mt-2 text-gray-600">
+              <p className="mt-2 text-gray-700">
                 {machine.department.name}
               </p>
             </div>
@@ -396,7 +396,7 @@ function MachineStatus({
       className={
         active
           ? "rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-700"
-          : "rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600"
+          : "rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700"
       }
     >
       <span className="mr-2">●</span>
@@ -422,7 +422,7 @@ function ActiveOperationCard({
             {execution.operation.name}
           </div>
 
-          <div className="mt-2 text-sm text-gray-600">
+          <div className="mt-2 text-sm text-gray-700">
             {execution.workOrder.product.name}
           </div>
         </div>
@@ -477,7 +477,7 @@ function ExecutionRow({
           />
         </div>
 
-        <div className="mt-1 text-sm text-gray-600">
+        <div className="mt-1 text-sm text-gray-700">
           {execution.operation.name}
           {" · "}
           {execution.workOrder.product.name}
@@ -502,7 +502,7 @@ function StatusBadge({
 }) {
   const styles: Record<string, string> = {
     WAITING:
-      "bg-gray-100 text-gray-600",
+      "bg-gray-100 text-gray-700",
     READY:
       "bg-blue-100 text-blue-700",
     RUNNING:
@@ -515,7 +515,7 @@ function StatusBadge({
     <span
       className={`rounded-full px-3 py-1 text-xs font-medium ${
         styles[status] ??
-        "bg-gray-100 text-gray-600"
+        "bg-gray-100 text-gray-700"
       }`}
     >
       {getStatusLabel(status)}
