@@ -19,8 +19,9 @@ model Product {
   bomParents  BOMItem[] @relation("BOMParent")
   bomChildren BOMItem[] @relation("BOMChild")
 
-  routings   Routing[]
-  workOrders WorkOrder[]
+  routings       Routing[]
+  workOrders     WorkOrder[]
+  workOrderItems WorkOrderItem[]
 
   revision String @default("A")
 
@@ -135,9 +136,37 @@ model WorkOrder {
 
   status String @default("PLANNED")
 
+  items WorkOrderItem[]
+
   operations OperationExecution[]
 
   createdAt DateTime @default(now())
+}
+
+model WorkOrderItem {
+  id String @id @default(cuid())
+
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  parentItemId String?
+
+  parentItem WorkOrderItem? @relation("WorkOrderItemHierarchy", fields: [parentItemId], references: [id])
+
+  childItems WorkOrderItem[] @relation("WorkOrderItemHierarchy")
+
+  quantity Int
+
+  operations OperationExecution[]
+
+  createdAt DateTime @default(now())
+
+  @@index([workOrderId])
+  @@index([productId])
+  @@index([parentItemId])
 }
 
 model OperationExecution {
@@ -145,6 +174,9 @@ model OperationExecution {
 
   workOrderId String
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  workOrderItemId String?
+  workOrderItem   WorkOrderItem? @relation(fields: [workOrderItemId], references: [id])
 
   operationId String
   operation   Operation @relation(fields: [operationId], references: [id])
@@ -160,4 +192,7 @@ model OperationExecution {
   actualTime Int?
 
   createdAt DateTime @default(now())
+
+  @@index([workOrderId])
+  @@index([workOrderItemId])
 }
