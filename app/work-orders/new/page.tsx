@@ -127,7 +127,6 @@ export default function NewWorkOrderPage() {
 
   useEffect(() => {
     if (!selectedProductId) {
-      setRouting(null);
       return;
     }
 
