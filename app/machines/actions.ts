@@ -2,11 +2,13 @@
 
 import { prisma } from "@/app/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { requireAdminPage } from "@/app/lib/auth";
 
 export async function deleteMachine(
   machineId: string,
   departmentCode: string,
 ) {
+  await requireAdminPage();
   const machine = await prisma.machine.findUnique({
     where: {
       id: machineId,
@@ -52,6 +54,7 @@ export async function createMachine(
   },
   formData: FormData,
 ) {
+  await requireAdminPage();
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
 
@@ -117,6 +120,7 @@ export async function updateMachine(
   departmentCode: string,
   formData: FormData,
 ) {
+  await requireAdminPage();
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
 

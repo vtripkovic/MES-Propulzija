@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type RouteContext = {
@@ -11,6 +12,8 @@ export async function GET(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi();
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 
@@ -66,6 +69,13 @@ export async function GET(
           status: 404,
         },
       );
+    }
+
+    if (
+      auth.user.role !== "ADMIN" &&
+      machine.departmentId !== auth.user.department?.id
+    ) {
+      return NextResponse.json({ error: "Mašina nije pronađena" }, { status: 404 });
     }
 
     return NextResponse.json(machine);

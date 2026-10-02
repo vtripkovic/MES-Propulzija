@@ -52,8 +52,39 @@ model Department {
   name String
 
   machines Machine[]
+  users    User[]
 
   createdAt DateTime @default(now())
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String
+  passwordHash String
+  role         String      @default("USER")
+  approvedAt   DateTime?
+  isActive     Boolean     @default(true)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  sessions     Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([departmentId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Machine {
@@ -181,6 +212,8 @@ model OperationExecution {
   operationId String
   operation   Operation @relation(fields: [operationId], references: [id])
 
+  executionOrder Int
+
   machineId String?
   machine   Machine? @relation(fields: [machineId], references: [id])
 
@@ -193,6 +226,7 @@ model OperationExecution {
 
   createdAt DateTime @default(now())
 
+  @@unique([workOrderId, executionOrder])
   @@index([workOrderId])
   @@index([workOrderItemId])
 }

@@ -425,18 +425,21 @@ async function main() {
     throw new Error("Routing A for PROP-001 not found");
   }
 
-  for (const operation of workOrderRouting.operations) {
+  for (const [executionOrder, operation] of
+    workOrderRouting.operations.entries()) {
     await prisma.operationExecution.upsert({
       where: {
         id: `${workOrder.id}-${operation.id}`,
       },
       update: {
         status: "WAITING",
+        executionOrder,
       },
       create: {
         id: `${workOrder.id}-${operation.id}`,
         workOrderId: workOrder.id,
         operationId: operation.id,
+        executionOrder,
         status: "WAITING",
       },
     });

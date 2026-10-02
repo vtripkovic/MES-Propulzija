@@ -1,7 +1,6 @@
 type MachineStatus =
   | "FREE"
   | "WAITING"
-  | "READY"
   | "RUNNING";
 
 type MachineStatusItem = {
@@ -16,31 +15,30 @@ type MachineStatusItem = {
 
 type MachineStatusProps = {
   machines: MachineStatusItem[];
+  sectorCode: string;
 };
 
 const statusLabels: Record<MachineStatus, string> = {
   FREE: "Slobodna",
   WAITING: "Čeka",
-  READY: "Spremno",
   RUNNING: "U toku",
 };
 
 const statusClasses: Record<MachineStatus, string> = {
   FREE: "bg-green-100 text-green-700",
   WAITING: "bg-gray-100 text-gray-700",
-  READY: "bg-blue-100 text-blue-700",
   RUNNING: "bg-yellow-100 text-yellow-700",
 };
 
 const statusDots: Record<MachineStatus, string> = {
   FREE: "bg-green-500",
   WAITING: "bg-gray-400",
-  READY: "bg-blue-500",
   RUNNING: "bg-yellow-500",
 };
 
 export default function MachineStatus({
   machines,
+  sectorCode,
 }: MachineStatusProps) {
   return (
     <section className="mb-8">
@@ -113,7 +111,7 @@ export default function MachineStatus({
 
                         {machine.workOrderId ? (
                           <a
-                            href={`/work-orders/${machine.workOrderId}`}
+                            href={`/work-orders/${machine.workOrderId}?sector=${encodeURIComponent(sectorCode)}`}
                             className="mt-1 inline-block text-sm font-semibold text-blue-600 hover:text-blue-700"
                           >
                             {machine.workOrderNumber}

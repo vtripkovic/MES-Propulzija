@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type RouteContext = {
@@ -11,6 +12,8 @@ export async function POST(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 
@@ -26,7 +29,7 @@ export async function POST(
     if (executions.length === 0) {
       return NextResponse.json(
         {
-          error: "Work order has no operations",
+          error: "Radni nalog nema izvršenja operacija, status nije moguće promeniti",
         },
         {
           status: 400,
@@ -69,7 +72,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: "Failed to update work order status",
+        error: "Status radnog naloga nije moguće promeniti",
       },
       {
         status: 500,

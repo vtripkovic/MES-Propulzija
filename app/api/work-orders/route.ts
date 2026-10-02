@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type BomNode = {
@@ -61,6 +62,8 @@ async function buildBom(
 }
 
 export async function GET(request: Request) {
+  const auth = await authorizeApi();
+  if (auth.response) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
 
@@ -84,6 +87,23 @@ export async function GET(request: Request) {
         : 10;
 
     const where = {
+      ...(auth.user.role === "ADMIN"
+        ? {}
+        : {
+            operations: {
+              some: {
+                operation: {
+                  machines: {
+                    some: {
+                      machine: {
+                        departmentId: auth.user.department?.id ?? "__no_department__",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }),
       ...(query
         ? {
             OR: [
@@ -129,19 +149,65 @@ export async function GET(request: Request) {
         product: true,
         operations: {
           include: {
-            operation: true,
-            machine: true,
-          },
-          orderBy: {
             operation: {
-              sequence: "asc",
+              include: {
+                machines: {
+                  include: {
+                    machine: {
+                      select: { departmentId: true },
+                    },
+                  },
+                },
+              },
             },
+            machine: {
+              include: {
+                department: true,
+              },
+            },
+            workOrderItem: {
+              select: {
+                id: true,
+                parentItemId: true,
+              },
+            },
+          },
+          orderBy: { executionOrder: "asc" },
+        },
+        items: {
+          select: {
+            id: true,
+            parentItemId: true,
           },
         },
       },
     });
 
-    const filteredWorkOrders = allWorkOrders.filter(
+    const scopedWorkOrders =
+      auth.user.role === "ADMIN"
+        ? allWorkOrders
+        : allWorkOrders.map((workOrder) => {
+            const scopedOperations = workOrder.operations.filter(
+              (execution) =>
+                execution.machine?.departmentId === auth.user.department?.id ||
+                (!execution.machine &&
+                  execution.operation.machines.some(
+                  (assignment) =>
+                    assignment.machine.departmentId === auth.user.department?.id,
+                  )),
+            );
+            return {
+              ...workOrder,
+              operations: scopedOperations,
+              items: workOrder.items.filter((item) =>
+                scopedOperations.some(
+                  (operation) => operation.workOrderItemId === item.id,
+                ),
+              ),
+            };
+          }).filter((workOrder) => workOrder.operations.length > 0);
+
+    const filteredWorkOrders = scopedWorkOrders.filter(
       (workOrder) => {
         if (!status || status === "ALL") {
           return true;
@@ -160,7 +226,6 @@ export async function GET(request: Request) {
             : workOrder.operations.some(
                   (operation) =>
                     operation.status === "RUNNING" ||
-                    operation.status === "READY" ||
                     operation.status === "COMPLETED",
                 )
               ? "IN_PROGRESS"
@@ -207,6 +272,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const body = await request.json();
 
@@ -346,28 +413,30 @@ export async function POST(request: Request) {
   }[];
 }[],
         children: BomNode[],
-      ) {
-        const workOrderItem = await tx.workOrderItem.create({
-          data: {
-            workOrderId: createdWorkOrder.id,
+      ): Promise<
+{
+  workOrderItemId: string;
+  operation: {
+    id: string;
+    machines: { machineId: string }[];
+  };
+}[]
+      > {
+const workOrderItem = await tx.workOrderItem.create({
+  data: {
+    workOrderId: createdWorkOrder.id,
             productId: itemProductId,
             parentItemId,
             quantity: itemQuantity,
           },
         });
-
-        await tx.operationExecution.createMany({
-  data: operations.map((operation, index) => ({
-    workOrderId: createdWorkOrder.id,
-    workOrderItemId: workOrderItem.id,
-    operationId: operation.id,
-    machineId: operation.machines[0]?.machineId ?? null,
-    status:
-      parentItemId === null && index === 0
-        ? "READY"
-        : "WAITING",
-  })),
-});
+        const childExecutions: {
+          workOrderItemId: string;
+          operation: {
+            id: string;
+            machines: { machineId: string }[];
+          };
+        }[] = [];
 
         for (const child of children) {
           const childRouting =
@@ -390,25 +459,46 @@ export async function POST(request: Request) {
     },
   });
 
-          await createWorkOrderItem(
+          childExecutions.push(...await createWorkOrderItem(
             child.child.id,
             itemQuantity * child.quantity,
             workOrderItem.id,
             childRouting?.operations ?? [],
             child.children,
-          );
+          ));
         }
 
-        return workOrderItem;
+        return [
+          ...childExecutions,
+          ...operations.map((operation) => ({
+            workOrderItemId: workOrderItem.id,
+            operation,
+          })),
+        ];
       }
 
-      await createWorkOrderItem(
+      const orderedExecutions = await createWorkOrderItem(
         product.id,
         quantity,
         null,
         routing.operations,
         bom,
       );
+
+      await tx.operationExecution.createMany({
+        data: orderedExecutions.map(
+          ({ workOrderItemId, operation }, index) => {
+            return {
+              workOrderId: createdWorkOrder.id,
+              workOrderItemId,
+              operationId: operation.id,
+              executionOrder: index,
+              machineId: operation.machines[0]?.machineId ?? null,
+              status: "WAITING",
+            };
+          },
+        ),
+      });
 
       return tx.workOrder.findUnique({
         where: {
@@ -426,11 +516,7 @@ export async function POST(request: Request) {
                   operation: true,
                   machine: true,
                 },
-                orderBy: {
-                  operation: {
-                    sequence: "asc",
-                  },
-                },
+                orderBy: { executionOrder: "asc" },
               },
             },
           },
@@ -439,11 +525,7 @@ export async function POST(request: Request) {
               operation: true,
               machine: true,
             },
-            orderBy: {
-              operation: {
-                sequence: "asc",
-              },
-            },
+            orderBy: { executionOrder: "asc" },
           },
         },
       });

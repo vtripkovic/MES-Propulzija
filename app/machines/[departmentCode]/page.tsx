@@ -7,6 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 
 import DeleteMachineButton from "@/app/machines/delete-machine-button";
 import { deleteMachine } from "@/app/machines/actions";
+import { requirePageUser } from "@/app/lib/auth";
 
 type MachinesPageProps = {
   params: Promise<{
@@ -18,6 +19,10 @@ export default async function MachinesBySectorPage({
   params,
 }: MachinesPageProps) {
   const { departmentCode } = await params;
+  const user = await requirePageUser();
+  if (user.role !== "ADMIN" && user.department?.code !== departmentCode) {
+    notFound();
+  }
 
   const department = await prisma.department.findUnique({
     where: {
@@ -45,12 +50,12 @@ export default async function MachinesBySectorPage({
           {/* Header */}
           <div className="mb-8">
             <div className="mb-2">
-              <Link
+              {user.role === "ADMIN" && <Link
                 href="/machines"
                 className="text-sm font-medium text-blue-600 hover:text-blue-700"
               >
                 ← Mašine
-              </Link>
+              </Link>}
             </div>
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -70,12 +75,12 @@ export default async function MachinesBySectorPage({
                 </p>
               </div>
 
-              <Link
+              {user.role === "ADMIN" && <Link
                 href={`/machines/${department.code}/new`}
                 className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
               >
                 + Ubaci novu mašinu
-              </Link>
+              </Link>}
             </div>
           </div>
 
@@ -94,14 +99,14 @@ export default async function MachinesBySectorPage({
                 U ovom sektoru trenutno nema definisanih mašina.
               </p>
 
-              <div className="mt-6">
+              {user.role === "ADMIN" && <div className="mt-6">
                 <Link
                   href={`/machines/${department.code}/new`}
                   className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
                 >
                   + Ubaci novu mašinu
                 </Link>
-              </div>
+              </div>}
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -143,20 +148,20 @@ export default async function MachinesBySectorPage({
 
                         <td className="px-6 py-4">
                           <div className="flex justify-end gap-2">
-                            <Link
+                            {user.role === "ADMIN" && <Link
                               href={`/machines/${department.code}/${machine.id}/edit`}
                               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                             >
                               Izmeni
-                            </Link>
+                            </Link>}
 
-                            <DeleteMachineButton
+                            {user.role === "ADMIN" && <DeleteMachineButton
   action={deleteMachine.bind(
     null,
     machine.id,
     department.code,
   )}
-/>
+/>}
                           </div>
                         </td>
                       </tr>

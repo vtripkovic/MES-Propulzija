@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type RouteContext = {
@@ -11,6 +12,8 @@ export async function GET(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id: productId } = await context.params;
 
@@ -71,7 +74,19 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(operations);
+    return NextResponse.json(
+      auth.user.role === "ADMIN"
+        ? operations
+        : operations
+            .map((operation) => ({
+              ...operation,
+              machines: operation.machines.filter(
+                (assignment) =>
+                  assignment.machine.departmentId === auth.user.department?.id,
+              ),
+            }))
+            .filter((operation) => operation.machines.length > 0),
+    );
   } catch (error) {
     console.error("OPERATIONS GET ERROR:", error);
 
@@ -93,6 +108,8 @@ export async function POST(
   request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id: productId } = await context.params;
 

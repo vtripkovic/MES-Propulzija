@@ -1,4 +1,5 @@
 import { prisma } from "@/app/lib/prisma";
+import { canStartWorkOrderExecution } from "@/app/lib/work-order-operations";
 
 async function updateWorkOrderStatus(workOrderId: string) {
   const executions = await prisma.operationExecution.findMany({
@@ -62,31 +63,37 @@ export async function startOperation(
     throw new Error("Operation execution not found");
   }
 
-  if (execution.status !== "WAITING" && execution.status !== "READY") {
+  if (execution.status !== "WAITING") {
     throw new Error(
       `Operation cannot be started from status ${execution.status}`,
     );
   }
 
-    const previousOperation = await prisma.operationExecution.findFirst({
-    where: {
-      workOrderId: execution.workOrderId,
-      operation: {
-        sequence: {
-          lt: execution.operation.sequence,
-        },
+  const [executions, items] = await Promise.all([
+    prisma.operationExecution.findMany({
+      where: { workOrderId: execution.workOrderId },
+      select: {
+        id: true,
+        workOrderItemId: true,
+        executionOrder: true,
+        status: true,
       },
-    },
-    orderBy: {
-      operation: {
-        sequence: "desc",
-      },
-    },
-  });
+    }),
+    prisma.workOrderItem.findMany({
+      where: { workOrderId: execution.workOrderId },
+      select: { id: true, parentItemId: true },
+    }),
+  ]);
+  const executionState = executions.find(
+    (item) => item.id === executionId,
+  );
 
-  if (previousOperation && previousOperation.status !== "COMPLETED") {
+  if (
+    !executionState ||
+    !canStartWorkOrderExecution(executionState, executions, items)
+  ) {
     throw new Error(
-      "Previous operation must be completed before starting this operation",
+      "Pre pokretanja operacije moraju biti završene prethodne operacije iste stavke i svih njenih delova",
     );
   }
 
@@ -183,33 +190,6 @@ export async function completeOperation(
       workOrder: true,
     },
   });
-
-  const nextOperation = await prisma.operationExecution.findFirst({
-    where: {
-      workOrderId: execution.workOrderId,
-      operation: {
-        sequence: {
-          gt: execution.operation.sequence,
-        },
-      },
-    },
-    orderBy: {
-      operation: {
-        sequence: "asc",
-      },
-    },
-  });
-
-  if (nextOperation) {
-    await prisma.operationExecution.update({
-      where: {
-        id: nextOperation.id,
-      },
-      data: {
-        status: "READY",
-      },
-    });
-  }
 
   await updateWorkOrderStatus(execution.workOrderId);
 

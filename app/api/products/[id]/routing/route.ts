@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type RouteContext = {
@@ -11,6 +12,8 @@ export async function GET(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 
@@ -76,6 +79,17 @@ export async function GET(
       );
     }
 
+    if (auth.user.role !== "ADMIN") {
+      routing.operations = routing.operations
+        .map((operation) => ({
+          ...operation,
+          machines: operation.machines.filter(
+            (assignment) =>
+              assignment.machine.departmentId === auth.user.department?.id,
+          ),
+        }))
+        .filter((operation) => operation.machines.length > 0);
+    }
     return NextResponse.json(routing);
   } catch (error) {
     console.error("ROUTING GET ERROR:", error);
@@ -98,6 +112,8 @@ export async function POST(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 

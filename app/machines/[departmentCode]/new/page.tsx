@@ -7,6 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 
 import { createMachine } from "@/app/machines/actions";
 import NewMachineForm from "@/app/machines/[departmentCode]/new/new-machine-form";
+import { requireAdminPage } from "@/app/lib/auth";
 
 
 type NewMachinePageProps = {
@@ -18,6 +19,7 @@ type NewMachinePageProps = {
 export default async function NewMachinePage({
   params,
 }: NewMachinePageProps) {
+  await requireAdminPage();
   const { departmentCode } = await params;
 
   const department = await prisma.department.findUnique({

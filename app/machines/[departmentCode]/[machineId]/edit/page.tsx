@@ -6,6 +6,7 @@ import Footer from "@/app/components/footer";
 import { prisma } from "@/app/lib/prisma";
 
 import { updateMachine } from "@/app/machines/actions";
+import { requireAdminPage } from "@/app/lib/auth";
 
 type EditMachinePageProps = {
   params: Promise<{
@@ -17,6 +18,7 @@ type EditMachinePageProps = {
 export default async function EditMachinePage({
   params,
 }: EditMachinePageProps) {
+  await requireAdminPage();
   const { departmentCode, machineId } = await params;
 
   const machine = await prisma.machine.findUnique({

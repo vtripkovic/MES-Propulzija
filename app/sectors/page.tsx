@@ -3,9 +3,15 @@ import Link from "next/link";
 import Header from "@/app/components/header";
 import Footer from "@/app/components/footer";
 import { prisma } from "@/app/lib/prisma";
+import { requirePageUser } from "@/app/lib/auth";
 
 export default async function SectorsPage() {
+  const user = await requirePageUser();
   const sectors = await prisma.department.findMany({
+    where:
+      user.role === "ADMIN"
+        ? undefined
+        : { id: user.department?.id ?? "__no_department__" },
     orderBy: {
       code: "asc",
     },

@@ -71,7 +71,6 @@ function getWorkOrderStatus(
     workOrder.operations.some(
       (operation) =>
         operation.status === "RUNNING" ||
-        operation.status === "READY" ||
         operation.status === "COMPLETED",
     );
 
@@ -140,6 +139,65 @@ export default function WorkOrdersPageClient() {
 
   const [totalPages, setTotalPages] =
     useState(1);
+
+  const [workOrderToDelete, setWorkOrderToDelete] =
+    useState<WorkOrder | null>(null);
+
+  const [deletingWorkOrderId, setDeletingWorkOrderId] =
+    useState<string | null>(null);
+
+  const [deleteError, setDeleteError] =
+    useState("");
+
+  async function deleteWorkOrder() {
+    if (!workOrderToDelete) {
+      return;
+    }
+
+    setDeletingWorkOrderId(workOrderToDelete.id);
+    setDeleteError("");
+
+    try {
+      const response = await fetch(
+        `/api/work-orders/${workOrderToDelete.id}`,
+        { method: "DELETE" },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ?? "Greška pri brisanju radnog naloga.",
+        );
+      }
+
+      const nextTotal = Math.max(0, total - 1);
+      const nextTotalPages = Math.max(
+        1,
+        Math.ceil(nextTotal / limit),
+      );
+
+      setWorkOrders((current) =>
+        current.filter(
+          (workOrder) => workOrder.id !== workOrderToDelete.id,
+        ),
+      );
+      setTotal(nextTotal);
+      setTotalPages(nextTotalPages);
+      setWorkOrderToDelete(null);
+
+      if (page > nextTotalPages) {
+        goToPage(nextTotalPages);
+      }
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Greška pri brisanju radnog naloga.",
+      );
+    } finally {
+      setDeletingWorkOrderId(null);
+    }
+  }
 
   /*
    * Učitavanje proizvoda za filter
@@ -415,6 +473,14 @@ export default function WorkOrdersPageClient() {
           {/* Header */}
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
+              <div className="mb-2">
+              <Link
+                href="/"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                ← Početna
+              </Link>
+            </div>
               <h1 className="text-2xl font-bold text-gray-900">
                 Radni nalozi
               </h1>
@@ -664,6 +730,19 @@ export default function WorkOrdersPageClient() {
                           const totalOperations =
                             workOrder.operations.length;
 
+                          const targetOperation =
+                            workOrder.operations.find(
+                              (operation) =>
+                                operation.status === "RUNNING",
+                            ) ??
+                            workOrder.operations.find(
+                              (operation) =>
+                                operation.status !== "COMPLETED",
+                            ) ??
+                            workOrder.operations[
+                              workOrder.operations.length - 1
+                            ];
+
                           return (
                             <tr
                               key={
@@ -762,12 +841,30 @@ export default function WorkOrdersPageClient() {
 
                               {/* Akcija */}
                               <td className="whitespace-nowrap px-5 py-4 text-right">
-                                <Link
-                                  href={`/work-orders/${workOrder.id}`}
-                                  className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
-                                >
-                                  Detaljno
-                                </Link>
+                                <div className="flex justify-end gap-2">
+                                  {targetOperation ? (
+                                    <Link
+                                      href={`/work-orders/${workOrder.id}/operations/${targetOperation.id}`}
+                                      className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                                    >
+                                      Otvori operaciju
+                                    </Link>
+                                  ) : (
+                                    <span className="self-center text-sm text-gray-500">
+                                      Nema operacija
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDeleteError("");
+                                      setWorkOrderToDelete(workOrder);
+                                    }}
+                                    className="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                                  >
+                                    Obriši
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -864,6 +961,80 @@ export default function WorkOrdersPageClient() {
       </main>
 
       <Footer />
+
+      {workOrderToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              !deletingWorkOrderId
+            ) {
+              setWorkOrderToDelete(null);
+              setDeleteError("");
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-work-order-title"
+            className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"
+          >
+            <h2
+              id="delete-work-order-title"
+              className="text-xl font-bold text-gray-900"
+            >
+              Brisanje radnog naloga
+            </h2>
+
+            <p className="mt-3 text-sm leading-6 text-gray-700">
+              Da li ste sigurni da želite da obrišete radni nalog{" "}
+              <span className="font-semibold text-gray-900">
+                {workOrderToDelete.number}
+              </span>
+              ?
+            </p>
+
+            <p className="mt-2 text-sm text-red-600">
+              Ova akcija će obrisati radni nalog i sva njegova izvršenja
+              operacija. Akcija se ne može poništiti.
+            </p>
+
+            {deleteError && (
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkOrderToDelete(null);
+                  setDeleteError("");
+                }}
+                disabled={Boolean(deletingWorkOrderId)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Otkaži
+              </button>
+
+              <button
+                type="button"
+                onClick={deleteWorkOrder}
+                disabled={Boolean(deletingWorkOrderId)}
+                className="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deletingWorkOrderId ? "Brisanje..." : "Obriši radni nalog"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

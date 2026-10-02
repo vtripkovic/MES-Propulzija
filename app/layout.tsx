@@ -14,17 +14,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MES - Propulzija",
-  description: "Manufacturing Execution System",
+  description: "Sistem za upravljanje proizvodnjom i optimizaciju proizvodnog procesa",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="sr"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
-

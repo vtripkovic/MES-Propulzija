@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type RouteContext = {
@@ -15,6 +16,8 @@ export async function GET(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi();
+  if (auth.response) return auth.response;
   try {
     const { operationId } = await context.params;
 
@@ -39,6 +42,13 @@ export async function GET(
       await prisma.operationMachine.findMany({
         where: {
           operationId,
+          ...(auth.user.role === "ADMIN"
+            ? {}
+            : {
+                machine: {
+                  departmentId: auth.user.department?.id ?? "__no_department__",
+                },
+              }),
         },
         include: {
           machine: {
@@ -88,6 +98,8 @@ export async function POST(
   request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { operationId } = await context.params;
 
@@ -219,6 +231,8 @@ export async function DELETE(
   request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { operationId } = await context.params;
 

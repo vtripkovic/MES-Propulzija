@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import WorkOrdersPageClient from "./work-orders-page-client";
+import { requirePageUser } from "@/app/lib/auth";
 
-export default function WorkOrdersPage() {
+export default async function WorkOrdersPage() {
+  await requirePageUser();
   return (
     <Suspense
       fallback={

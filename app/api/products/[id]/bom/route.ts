@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type BomNode = {
@@ -79,6 +80,8 @@ export async function GET(
     params: Promise<{ id: string }>;
   },
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 
@@ -233,6 +236,8 @@ export async function POST(
     params: Promise<{ id: string }>;
   },
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id: parentId } =
       await context.params;

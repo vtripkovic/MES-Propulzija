@@ -1,9 +1,32 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 export async function GET() {
+  const auth = await authorizeApi();
+  if (auth.response) return auth.response;
   try {
     const products = await prisma.product.findMany({
+      where:
+        auth.user.role === "ADMIN"
+          ? undefined
+          : {
+              routings: {
+                some: {
+                  operations: {
+                    some: {
+                      machines: {
+                        some: {
+                          machine: {
+                            departmentId: auth.user.department?.id ?? "__no_department__",
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
       orderBy: {
         code: "asc",
       },
@@ -32,6 +55,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const body = await request.json();
 

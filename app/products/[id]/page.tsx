@@ -1,5 +1,7 @@
 import ProductPageClient from "./product-page-client";
+import { requireAdminPage } from "@/app/lib/auth";
 
-export default function ProductPage() {
+export default async function ProductPage() {
+  await requireAdminPage();
   return <ProductPageClient />;
 }

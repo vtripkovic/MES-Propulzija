@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeApi } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
 type RouteContext = {
@@ -11,6 +12,8 @@ export async function GET(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi();
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 
@@ -38,13 +41,13 @@ export async function GET(
                 },
               },
             },
-            machine: true,
-          },
-          orderBy: {
-            operation: {
-              sequence: "asc",
+            machine: {
+              include: {
+                department: true,
+              },
             },
           },
+          orderBy: { executionOrder: "asc" },
         },
 
         // Hijerarhijska struktura radnog naloga
@@ -79,13 +82,13 @@ export async function GET(
                     },
                   },
                 },
-                machine: true,
-              },
-              orderBy: {
-                operation: {
-                  sequence: "asc",
+                machine: {
+                  include: {
+                    department: true,
+                  },
                 },
               },
+              orderBy: { executionOrder: "asc" },
             },
           },
 
@@ -99,12 +102,64 @@ export async function GET(
     if (!workOrder) {
       return NextResponse.json(
         {
-          error: "Work order not found",
+          error: "Radni nalog nije moguće pronaći",
         },
         {
           status: 404,
         },
       );
+    }
+
+    if (auth.user.role !== "ADMIN") {
+      const departmentId = auth.user.department?.id;
+      const scopedOperations = workOrder.operations.filter(
+        (execution) =>
+          execution.machine?.departmentId === departmentId ||
+          (!execution.machine &&
+            execution.operation.machines.some(
+              (assignment) =>
+                assignment.machine.departmentId === departmentId,
+            )),
+      );
+      if (!scopedOperations.length) {
+        return NextResponse.json(
+          { error: "Radni nalog nije pronađen" },
+          { status: 404 },
+        );
+      }
+      workOrder.operations = scopedOperations.map((execution) => ({
+        ...execution,
+        operation: {
+          ...execution.operation,
+          machines: execution.operation.machines.filter(
+            (assignment) =>
+              assignment.machine.departmentId === departmentId,
+          ),
+        },
+      }));
+      workOrder.items = workOrder.items
+        .filter((item) =>
+          item.operations.some((execution) =>
+            scopedOperations.some((scoped) => scoped.id === execution.id),
+          ),
+        )
+        .map((item) => ({
+          ...item,
+          operations: item.operations.filter((execution) =>
+            scopedOperations.some((scoped) => scoped.id === execution.id),
+          ).map((execution) => ({
+            ...execution,
+            operation: {
+              ...execution.operation,
+              machines: execution.operation.machines.filter(
+                (assignment) =>
+                  assignment.machine.departmentId === departmentId,
+              ),
+            },
+          })),
+          parentItem: null,
+          childItems: [],
+        }));
     }
 
     return NextResponse.json(workOrder);
@@ -113,7 +168,7 @@ export async function GET(
 
     return NextResponse.json(
       {
-        error: "Failed to fetch work order",
+        error: "Radni nalog nije moguće pronaći",
       },
       {
         status: 500,
@@ -126,6 +181,8 @@ export async function DELETE(
   _request: Request,
   context: RouteContext,
 ) {
+  const auth = await authorizeApi(true);
+  if (auth.response) return auth.response;
   try {
     const { id } = await context.params;
 
@@ -145,7 +202,7 @@ export async function DELETE(
     if (!workOrder) {
       return NextResponse.json(
         {
-          error: "Work order not found",
+          error: "Radni nalog nije moguće pronaći",
         },
         {
           status: 404,
@@ -161,7 +218,14 @@ export async function DELETE(
         },
       });
 
-      // Zatim brišemo radni nalog
+      // WorkOrderItem has a restrictive foreign key to WorkOrder.
+      await tx.workOrderItem.deleteMany({
+        where: {
+          workOrderId: id,
+        },
+      });
+
+      // Delete the work order after all dependent records.
       await tx.workOrder.delete({
         where: {
           id,
@@ -171,17 +235,17 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: `Work order "${workOrder.number}" deleted successfully.`,
+      message: `Radni nalog "${workOrder.number}" uspešno obrisan.`,
     });
   } catch (error) {
-    console.error("WORK ORDER DELETE ERROR:", error);
+    console.error("Greška kod brisanja radnog naloga:", error);
 
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "Failed to delete work order",
+            : "Radni nalog nije moguće obrisati",
       },
       {
         status: 500,

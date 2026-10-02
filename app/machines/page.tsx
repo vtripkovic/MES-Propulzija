@@ -3,8 +3,14 @@ import Link from "next/link";
 import Header from "@/app/components/header";
 import Footer from "@/app/components/footer";
 import { prisma } from "@/app/lib/prisma";
+import { redirect } from "next/navigation";
+import { requirePageUser } from "@/app/lib/auth";
 
 export default async function MachinesPage() {
+  const user = await requirePageUser();
+  if (user.role !== "ADMIN") {
+    redirect(user.department ? `/machines/${user.department.code}` : "/");
+  }
   const sectors = await prisma.department.findMany({
     orderBy: {
       code: "asc",

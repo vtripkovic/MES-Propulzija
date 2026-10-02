@@ -5,6 +5,7 @@ import Header from "@/app/components/header";
 import Footer from "@/app/components/footer";
 import { prisma } from "@/app/lib/prisma";
 import MachineStatus from "./machine-status";
+import { requirePageUser } from "@/app/lib/auth";
 
 type SectorPageProps = {
   params: Promise<{
@@ -14,14 +15,12 @@ type SectorPageProps = {
 
 const statusLabels: Record<string, string> = {
   WAITING: "Čeka",
-  READY: "Spremno",
   RUNNING: "U toku",
   COMPLETED: "Završeno",
 };
 
 const statusClasses: Record<string, string> = {
   WAITING: "bg-gray-100 text-gray-700",
-  READY: "bg-blue-100 text-blue-700",
   RUNNING: "bg-yellow-100 text-yellow-700",
   COMPLETED: "bg-green-100 text-green-700",
 };
@@ -30,6 +29,10 @@ export default async function SectorPage({
   params,
 }: SectorPageProps) {
   const { code } = await params;
+  const user = await requirePageUser();
+  if (user.role !== "ADMIN" && user.department?.code !== code) {
+    notFound();
+  }
 
   const sector = await prisma.department.findUnique({
     where: {
@@ -90,7 +93,20 @@ export default async function SectorPage({
    * Trenutna operacija je prva operacija koja još nije
    * završena.
    */
-  const currentJobs = workOrders
+  const sectorWorkOrders = workOrders.map((workOrder) => ({
+    ...workOrder,
+    operations: workOrder.operations.filter(
+      (execution) =>
+        execution.machine?.departmentId === sector.id ||
+        (!execution.machine &&
+          execution.operation.machines.some(
+            (operationMachine) =>
+              operationMachine.machine.departmentId === sector.id,
+          )),
+    ),
+  }));
+
+  const currentJobs = sectorWorkOrders
     .map((workOrder) => {
       const currentOperation = workOrder.operations.find(
         (execution) => execution.status !== "COMPLETED",
@@ -110,17 +126,6 @@ export default async function SectorPage({
        * 2. Mašina još nije izabrana, ali je operacija
        *    povezana sa mašinama ovog sektora.
        */
-      const belongsToSector =
-        currentOperation.machine?.departmentId === sector.id ||
-        currentOperation.operation.machines.some(
-          (operationMachine) =>
-            operationMachine.machine.departmentId === sector.id,
-        );
-
-      if (!belongsToSector) {
-        return null;
-      }
-
       const completedOperations =
         workOrder.operations.filter(
           (execution) => execution.status === "COMPLETED",
@@ -147,7 +152,7 @@ export default async function SectorPage({
    */
   const machineStatuses = sector.machines.map((machine) => {
     const runningExecution =
-      workOrders
+      sectorWorkOrders
         .flatMap((workOrder) => workOrder.operations)
         .find(
           (execution) =>
@@ -155,17 +160,8 @@ export default async function SectorPage({
             execution.status === "RUNNING",
         );
 
-    const readyExecution =
-      workOrders
-        .flatMap((workOrder) => workOrder.operations)
-        .find(
-          (execution) =>
-            execution.machineId === machine.id &&
-            execution.status === "READY",
-        );
-
     const waitingExecution =
-      workOrders
+      sectorWorkOrders
         .flatMap((workOrder) => workOrder.operations)
         .find(
           (execution) =>
@@ -176,7 +172,6 @@ export default async function SectorPage({
     let status:
       | "FREE"
       | "WAITING"
-      | "READY"
       | "RUNNING" = "FREE";
 
     let activeExecution = null;
@@ -185,16 +180,12 @@ export default async function SectorPage({
      * Prioritet:
      *
      * RUNNING
-     * READY
      * WAITING
      * FREE
      */
     if (runningExecution) {
       status = "RUNNING";
       activeExecution = runningExecution;
-    } else if (readyExecution) {
-      status = "READY";
-      activeExecution = readyExecution;
     } else if (waitingExecution) {
       status = "WAITING";
       activeExecution = waitingExecution;
@@ -209,7 +200,7 @@ export default async function SectorPage({
       };
     }
 
-    const workOrder = workOrders.find(
+    const workOrder = sectorWorkOrders.find(
       (order) =>
         order.operations.some(
           (execution) => execution.id === activeExecution?.id,
@@ -236,12 +227,14 @@ export default async function SectorPage({
         <div className="mx-auto max-w-7xl px-6 py-10 md:px-8">
           <div className="mb-8">
             <div className="mb-2">
-              <Link
-                href="/sectors"
-                className="text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                ← Svi sektori
-              </Link>
+              {user.role === "ADMIN" && (
+                <Link
+                  href="/sectors"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  ← Svi sektori
+                </Link>
+              )}
             </div>
 
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -289,6 +282,7 @@ export default async function SectorPage({
 
           <MachineStatus
             machines={machineStatuses}
+            sectorCode={sector.code}
           />
 
           {/* TRENUTNI POSLOVI */}
@@ -370,7 +364,7 @@ export default async function SectorPage({
                             >
                               <td className="px-6 py-4">
                                 <Link
-                                  href={`/work-orders/${workOrder.id}`}
+                                  href={`/work-orders/${workOrder.id}?sector=${encodeURIComponent(sector.code)}`}
                                   className="font-semibold text-blue-600 hover:text-blue-700"
                                 >
                                   {workOrder.number}
@@ -468,7 +462,7 @@ export default async function SectorPage({
 
                               <td className="px-6 py-4">
                                 <Link
-                                  href={`/work-orders/${workOrder.id}`}
+                                  href={`/work-orders/${workOrder.id}?sector=${encodeURIComponent(sector.code)}`}
                                   className="text-sm font-semibold text-blue-600 hover:text-blue-700"
                                 >
                                   Otvori →
